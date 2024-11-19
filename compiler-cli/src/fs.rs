@@ -259,12 +259,18 @@ impl DownloadDependencies for ProjectIO {
 pub fn delete_directory(dir: &Utf8Path) -> Result<(), Error> {
     tracing::trace!(path=?dir, "deleting_directory");
     if dir.exists() {
-        std::fs::remove_dir_all(dir).map_err(|e| Error::FileIo {
-            action: FileIoAction::Delete,
-            kind: FileKind::Directory,
-            path: dir.to_path_buf(),
-            err: Some(e.to_string()),
-        })?;
+        match std::fs::remove_dir_all(dir) {
+            Err(e) => match e.raw_os_error() {
+                Some(39) => Ok(()),
+                _ => Err(Error::FileIo {
+                    action: FileIoAction::Delete,
+                    kind: FileKind::Directory,
+                    path: dir.to_path_buf(),
+                    err: Some(e.to_string()),
+                }),
+            },
+            _ => Ok(()),
+        }?;
     } else {
         tracing::trace!(path=?dir, "directory_did_not_exist_for_deletion");
     }
